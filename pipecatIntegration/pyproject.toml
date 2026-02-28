@@ -1,0 +1,15 @@
+[project]
+name = "pipecatintegration"
+version = "0.1.0"
+description = "Local voice agent using Pipecat + Whisper + Ollama + Kokoro"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pipecat-ai[websocket,whisper]>=0.0.71",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "python-dotenv>=1.1.0",
+    "websockets>=12.0",
+    "numpy>=1.26.0",
+    "loguru>=0.7.0",
+]

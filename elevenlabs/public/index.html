@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wise Voice Agent</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: #0f0f0f;
+      color: #fff;
+    }
+    .container {
+      text-align: center;
+    }
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 2rem;
+      font-weight: 400;
+      color: #aaa;
+    }
+    #btn {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 600;
+      transition: all 0.2s;
+      background: #2563eb;
+      color: #fff;
+    }
+    #btn:hover { background: #1d4ed8; }
+    #btn.active {
+      background: #dc2626;
+      animation: pulse 1.5s infinite;
+    }
+    #btn.active:hover { background: #b91c1c; }
+    #btn:disabled { background: #333; cursor: not-allowed; animation: none; }
+    #status {
+      margin-top: 1.5rem;
+      font-size: 0.9rem;
+      color: #666;
+    }
+    #transcript {
+      margin-top: 2rem;
+      width: 420px;
+      max-height: 320px;
+      overflow-y: auto;
+      text-align: left;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+    .msg {
+      padding: 0.55rem 0.85rem;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      line-height: 1.4;
+      max-width: 85%;
+    }
+    .msg.user {
+      background: #1e3a5f;
+      color: #93c5fd;
+      align-self: flex-end;
+    }
+    .msg.agent {
+      background: #1a1a1a;
+      color: #d1d5db;
+      align-self: flex-start;
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+      50% { box-shadow: 0 0 0 20px rgba(220, 38, 38, 0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Wise Voice Agent</h1>
+    <button id="btn" onclick="toggle()">Start</button>
+    <p id="status">Click to start</p>
+    <div id="transcript"></div>
+  </div>
+
+  <script>
+    const btn = document.getElementById("btn");
+    const status = document.getElementById("status");
+    const transcript = document.getElementById("transcript");
+
+    function addMessage(role, text) {
+      if (!text) return;
+      const el = document.createElement("div");
+      el.className = `msg ${role}`;
+      el.textContent = text;
+      transcript.appendChild(el);
+      transcript.scrollTop = transcript.scrollHeight;
+    }
+
+    let ws = null;
+    let audioCtx = null;
+    let micStream = null;
+    let scriptNode = null;
+    let source = null;
+    let isRunning = false;
+
+    // Queue for audio playback
+    let audioQueue = [];
+    let isPlaying = false;
+
+    function setStatus(text) {
+      status.textContent = text;
+    }
+
+    async function toggle() {
+      if (isRunning) {
+        stop();
+      } else {
+        await start();
+      }
+    }
+
+    async function start() {
+      btn.disabled = true;
+      setStatus("Requesting microphone...");
+
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            sampleRate: 16000,
+            channelCount: 1,
+            echoCancellation: true,
+            noiseSuppression: true,
+          },
+        });
+      } catch (e) {
+        setStatus("Microphone access denied");
+        btn.disabled = false;
+        return;
+      }
+
+      setStatus("Connecting...");
+
+      // Connect WebSocket to backend
+      const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+      ws = new WebSocket(`${protocol}//${location.host}/ws`);
+
+      ws.onopen = () => {
+        setStatus("Waiting for agent...");
+      };
+
+      ws.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+
+        switch (msg.type) {
+          case "connected":
+            setStatus("Listening... speak now");
+            isRunning = true;
+            btn.textContent = "Stop";
+            btn.classList.add("active");
+            btn.disabled = false;
+            startMic();
+            break;
+
+          case "audio":
+            playAudio(msg.audio);
+            break;
+
+          case "interruption":
+            // Clear queued audio when user interrupts
+            audioQueue = [];
+            isPlaying = false;
+            break;
+
+          case "user_transcript":
+            addMessage("user", msg.text);
+            break;
+
+          case "agent_response":
+            addMessage("agent", msg.text);
+            break;
+
+          case "disconnected":
+            stop();
+            break;
+
+          case "error":
+            setStatus("Error: " + msg.message);
+            stop();
+            break;
+        }
+      };
+
+      ws.onclose = () => {
+        if (isRunning) stop();
+      };
+
+      ws.onerror = () => {
+        setStatus("Connection failed");
+        stop();
+      };
+    }
+
+    function startMic() {
+      audioCtx = new AudioContext({ sampleRate: 16000 });
+      source = audioCtx.createMediaStreamSource(micStream);
+
+      // Use ScriptProcessorNode to capture raw PCM
+      scriptNode = audioCtx.createScriptProcessor(4096, 1, 1);
+
+      scriptNode.onaudioprocess = (e) => {
+        if (!isRunning || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+        const float32 = e.inputBuffer.getChannelData(0);
+
+        // Convert float32 to 16-bit PCM
+        const pcm16 = new Int16Array(float32.length);
+        for (let i = 0; i < float32.length; i++) {
+          const s = Math.max(-1, Math.min(1, float32[i]));
+          pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+        }
+
+        // Base64 encode
+        const bytes = new Uint8Array(pcm16.buffer);
+        let binary = "";
+        for (let i = 0; i < bytes.length; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        const base64 = btoa(binary);
+
+        ws.send(JSON.stringify({ type: "audio", audio: base64 }));
+      };
+
+      source.connect(scriptNode);
+      scriptNode.connect(audioCtx.destination);
+    }
+
+    function playAudio(base64) {
+      audioQueue.push(base64);
+      if (!isPlaying) {
+        processAudioQueue();
+      }
+    }
+
+    async function processAudioQueue() {
+      if (audioQueue.length === 0) {
+        isPlaying = false;
+        return;
+      }
+
+      isPlaying = true;
+      const base64 = audioQueue.shift();
+
+      // Decode base64 to binary
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+
+      // Convert 16-bit PCM to float32 for Web Audio API
+      const pcm16 = new Int16Array(bytes.buffer);
+      const float32 = new Float32Array(pcm16.length);
+      for (let i = 0; i < pcm16.length; i++) {
+        float32[i] = pcm16[i] / 0x7fff;
+      }
+
+      // Create audio buffer and play
+      const playbackCtx = new AudioContext({ sampleRate: 16000 });
+      const buffer = playbackCtx.createBuffer(1, float32.length, 16000);
+      buffer.getChannelData(0).set(float32);
+
+      const bufferSource = playbackCtx.createBufferSource();
+      bufferSource.buffer = buffer;
+      bufferSource.connect(playbackCtx.destination);
+      bufferSource.onended = () => {
+        playbackCtx.close();
+        processAudioQueue();
+      };
+      bufferSource.start();
+    }
+
+    function stop() {
+      isRunning = false;
+      audioQueue = [];
+      isPlaying = false;
+
+      if (scriptNode) {
+        scriptNode.disconnect();
+        scriptNode = null;
+      }
+      if (source) {
+        source.disconnect();
+        source = null;
+      }
+      if (audioCtx) {
+        audioCtx.close();
+        audioCtx = null;
+      }
+      if (micStream) {
+        micStream.getTracks().forEach((t) => t.stop());
+        micStream = null;
+      }
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
+      ws = null;
+
+      btn.textContent = "Start";
+      btn.classList.remove("active");
+      btn.disabled = false;
+      setStatus("Click to start");
+      transcript.innerHTML = "";
+    }
+  </script>
+</body>
+</html>

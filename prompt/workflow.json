@@ -1,0 +1,65 @@
+{
+  "provider": "WISE",
+  "workflows": {
+    "checkTransferStatus": {
+      "name": "checkTransferStatus",
+      "description": "Handles inquiries about checking the status of a transfer",
+      "nodes": {
+        "guideStatusCheck": {
+          "isFirstNode": true,
+          "prompt": "Guide the caller on how to check their transfer status. Steps: 1) Log in to their Wise account, 2) Go to Home to see the activity list, 3) Click on the transfer they want to track. Explain the transfer stages: 'Your money's being processed' means Wise is waiting for the bank to send the money; 'Money received' means Wise has the money and is converting it; 'Transfer Sent' means money is sent to the recipient's bank and may take a few working days. If the caller mentions a delay, explain common reasons: money taking long to reach Wise (check with bank if over 2 working days), verification needed (check email for requests), mistake in recipient details (bank may still process slowly or reject), or weekend/public holiday (banks resume next working day). If they want to speed it up, suggest sharing a transfer receipt PDF with the recipient so their bank can track it."
+        }
+      }
+    },
+    "transferArrivalTime": {
+      "name": "transferArrivalTime",
+      "description": "Handles inquiries about when a transfer will arrive",
+      "nodes": {
+        "explainArrivalEstimate": {
+          "isFirstNode": true,
+          "prompt": "Help the caller understand when their money will arrive. Direct them to check the tracker: Log in to Wise account > Home > Click on the transfer. If the tracker says 'due to arrive today', the money should have arrived already but some banks need a few hours to process. If recipient details may be wrong: small typos in names usually aren't a problem for most countries (except JPY), but wrong account numbers can cause delays or returns. For weekend/holiday transfers: not all countries have banking on weekends, and some banks stop processing early on Fridays so Friday arrivals may show on the next working day. If the recipient says money hasn't arrived: ask them to look for a transaction from 'Wise' (not the sender's name), verify recipient bank details, check if the account currency differs from sent currency (bank may have converted), and share a transfer receipt (PDF from Wise account > click transfer > 3 dots > Get PDF receipt) so the recipient's bank can track it. For Wise Interest or Stocks transfers, mention there are daily thresholds that may add delay."
+        }
+      }
+    },
+    "transferCompleteNotArrived": {
+      "name": "transferCompleteNotArrived",
+      "description": "Handles cases where a transfer is marked complete but the recipient hasn't received the money",
+      "nodes": {
+        "explainCompletionStatus": {
+          "isFirstNode": true,
+          "prompt": "Explain to the caller that Wise marks a transfer as 'Complete' when the money has been sent to the recipient's bank, not when it's in the recipient's account. There are two possible reasons: 1) The receiving bank is still processing — some banks take up to 1 working day to release the money. The recipient can contact their bank with a transfer receipt to speed it up. 2) The money has arrived but looks different — the recipient might not recognise it because: the sender name shows as 'Wise' or a banking partner (not the sender's personal name), or the currency/amount might differ if the recipient's account is in a different currency (the bank may have converted it again). Suggest the caller download a transfer receipt from their Wise account and share it with the recipient to help identify or track the payment."
+        }
+      }
+    },
+    "transferDelayed": {
+      "name": "transferDelayed",
+      "description": "Handles inquiries about transfers taking longer than the estimated delivery time",
+      "nodes": {
+        "explainDelayReasons": {
+          "isFirstNode": true,
+          "prompt": "Explain the transfer stages where delays can happen: 1) 'Money on its way to Wise' — depends on how fast the caller's bank sends money. 2) 'Processing your transfer' — Wise has the money and is converting it; security checks usually happen here. 3) 'Money on its way to recipient' — up to the recipient's bank; recipient can ask their bank to check using a transfer confirmation. Common delay reasons: Security checks — standard regulatory checks, if more info is needed Wise will email (ID or proof of funds), cannot be sped up. Payment method — card payments are usually instant, bank transfers take 1-4 working days, Swift transfers take 1-6 working days. Weekends and public holidays — banks don't process on these days, estimates only count working days (Mon-Fri), applies to both sending and receiving countries. Mistakes in recipient details — typos in name or account number can cause rejection and return; check activity list for status, can fix details or cancel. Mention that refunds can take a few days depending on currency and payment method."
+        }
+      }
+    },
+    "proofOfPayment": {
+      "name": "proofOfPayment",
+      "description": "Handles inquiries about proof of payment requirements and how to provide them",
+      "nodes": {
+        "explainProofRequirements": {
+          "isFirstNode": true,
+          "prompt": "Explain what a proof of payment is: a document showing money was sent from the caller's bank account, such as a PDF bank statement or screenshot from online banking. Wise may request it for two reasons: 1) The money hasn't reached Wise in the expected time frame, or 2) Wise needs to verify the money came from an account in the caller's name. If requested, Wise sends an email explaining how to upload it. The document must clearly show: caller's full name and account number, bank's name, Wise's name (Wise Ltd) and account number, date of payment, amount sent, currency, and reference added to payment. If all details don't fit in one screenshot, two can be sent but both must show the bank account number. Important: copy-pasted text in an email or photos of a computer screen are not accepted — must be a high-quality screenshot or PDF. For Swift payments, a pacs.008 document is needed. For Australia or New Zealand payments, an online banking screenshot alone isn't enough — a recent bank statement showing name, date of issue, and bank details is also required."
+        }
+      }
+    },
+    "bankingPartnerReference": {
+      "name": "bankingPartnerReference",
+      "description": "Handles inquiries about banking partner reference numbers and how to use them",
+      "nodes": {
+        "explainReferenceNumber": {
+          "isFirstNode": true,
+          "prompt": "Explain that for every Wise transfer, a transfer number is provided which can be used to contact Wise. For some transfers, a banking partner reference number is also given because Wise sends money through local banking partners in each country. How to use it: give the banking partner reference number to the recipient, who can use it to track the transfer once it shows as completed in the sender's Wise account. The recipient gives this number to their bank if they contact them about the payment. In different countries, banks may call it something else — for example, in India it's called UTR (Unique Transaction Reference) number or transaction reference number."
+        }
+      }
+    }
+  }
+}
