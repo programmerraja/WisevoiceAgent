@@ -5,7 +5,7 @@ const dotenv = require("dotenv");
 const axios = require("axios");
 const path = require("path");
 const workflow = require("../prompt/workflow.json");
-const {BaseWorkflow} = require("./workflow");
+const { BaseWorkflow } = require("./workflow");
 
 dotenv.config();
 
@@ -46,10 +46,20 @@ wss.on("connection", async (browserWs) => {
     elevenWs.on("open", () => {
       console.log("Connected to ElevenLabs");
       browserWs.send(JSON.stringify({ type: "connected" }));
+
+      elevenWs.send(
+        JSON.stringify({
+          type: "conversation_initiation_client_data",
+          dynamic_variables: {
+            scenarios: baseWorkflow.getWorkflows(),
+          },
+        }),
+      );
     });
 
     elevenWs.on("message", (data) => {
       const msg = JSON.parse(data);
+      console.log("Received from ElevenLabs:", msg.type);
       switch (msg.type) {
         case "audio":
           const audio =
@@ -93,11 +103,28 @@ wss.on("connection", async (browserWs) => {
           break;
 
         case "client_tool_call":
-          // {tool_name:"",tool_call_id:"",parameters:{}}
-          if (baseWorkflow[msg.tool_name]) {
-            baseWorkflow[msg.tool_name](msg.parameters);
-          }else{
-            return `${msg.tool_name} not found in workflow. Please check the tool name and try again.`;
+          // client_tool_call: {tool_name: 'chooseScenario', tool_call_id: 'chooseScenario_3d4181da2f2c45e3a4f2d2aa2cad4b4a', parameters: {…}, event_id: 31, expects_response: true}
+          // {client_tool_call:{tool_name:"",tool_call_id:"",parameters:{}}}
+          const clientToolCall = msg.client_tool_call;
+          if (baseWorkflow[clientToolCall.tool_name]) {
+            const prompt = baseWorkflow[clientToolCall.tool_name](clientToolCall.parameters);
+            elevenWs.send(
+              JSON.stringify({
+                type: "client_tool_result",
+                is_error:false,
+                tool_call_id: clientToolCall.tool_call_id,
+                result: prompt,
+              }),
+            );
+          } else {
+            elevenWs.send(
+              JSON.stringify({
+                type: "client_tool_result",
+                is_error:true,
+                tool_call_id: clientToolCall.tool_call_id,
+                result: `${clientToolCall.tool_name} not found in workflow. Please check the tool name and try again.`,
+              }),
+            );
           }
           break;
         default:

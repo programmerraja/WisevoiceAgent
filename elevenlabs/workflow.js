@@ -1,4 +1,3 @@
-
 export class BaseWorkflow {
   constructor(agentWorkflow) {
     this.agentWorkflow = agentWorkflow;
@@ -29,5 +28,11 @@ export class BaseWorkflow {
     this.currentNode = this.currentWorkflow.nodes[this.currentNodeName];
 
     return this.currentNode.prompt;
+  }
+
+  getWorkflows() {
+    return Object.keys(this.agentWorkflow.workflows)
+      .map((key) => `${key} - ${this.agentWorkflow.workflows[key].description}`)
+      .join("\n");
   }
 }

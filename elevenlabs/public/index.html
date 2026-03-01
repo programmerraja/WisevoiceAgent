@@ -113,6 +113,8 @@
     // Queue for audio playback
     let audioQueue = [];
     let isPlaying = false;
+    let currentSource = null;
+    let playbackCtx = null;
 
     function setStatus(text) {
       status.textContent = text;
@@ -173,9 +175,14 @@
             break;
 
           case "interruption":
-            // Clear queued audio when user interrupts
+            // Stop currently playing audio and clear the queue
             audioQueue = [];
             isPlaying = false;
+            if (currentSource) {
+              currentSource.onended = null;
+              currentSource.stop();
+              currentSource = null;
+            }
             break;
 
           case "user_transcript":
@@ -271,16 +278,19 @@
         float32[i] = pcm16[i] / 0x7fff;
       }
 
-      // Create audio buffer and play
-      const playbackCtx = new AudioContext({ sampleRate: 16000 });
+      // Create audio buffer and play (reuse a single playback context)
+      if (!playbackCtx || playbackCtx.state === "closed") {
+        playbackCtx = new AudioContext({ sampleRate: 16000 });
+      }
       const buffer = playbackCtx.createBuffer(1, float32.length, 16000);
       buffer.getChannelData(0).set(float32);
 
       const bufferSource = playbackCtx.createBufferSource();
       bufferSource.buffer = buffer;
       bufferSource.connect(playbackCtx.destination);
+      currentSource = bufferSource;
       bufferSource.onended = () => {
-        playbackCtx.close();
+        currentSource = null;
         processAudioQueue();
       };
       bufferSource.start();
@@ -290,6 +300,15 @@
       isRunning = false;
       audioQueue = [];
       isPlaying = false;
+      if (currentSource) {
+        currentSource.onended = null;
+        currentSource.stop();
+        currentSource = null;
+      }
+      if (playbackCtx && playbackCtx.state !== "closed") {
+        playbackCtx.close();
+        playbackCtx = null;
+      }
 
       if (scriptNode) {
         scriptNode.disconnect();

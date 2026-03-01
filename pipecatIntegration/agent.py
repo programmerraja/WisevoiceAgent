@@ -1,5 +1,9 @@
+import json
+
 from loguru import logger
 
+from pipecat.adapters.schemas.function_schema import FunctionSchema
+from pipecat.adapters.schemas.tools_schema import ToolsSchema
 from pipecat.audio.vad.silero import SileroVADAnalyzer
 from pipecat.frames.frames import TransportMessageUrgentFrame
 from pipecat.pipeline.pipeline import Pipeline
@@ -15,17 +19,37 @@ from pipecat.transports.websocket.fastapi import (
 from serializer import ElevenLabsFrameSerializer
 from stt import WhisperWebSocketSTT
 from tts import KokoroWebSocketTTS
+from workflow import BaseWorkflow
 
 SYSTEM_PROMPT = open("../prompt/system.md").read()
 
-# Browser captures at 16kHz PCM — match this throughout
+with open("../prompt/workflow.json") as f:
+    WORKFLOW_CONFIG = json.load(f)
+
 SAMPLE_RATE = 16000
+
+choose_scenario_function = FunctionSchema(
+    name="chooseScenario",
+    description="Use when you identify what the caller needs",
+    properties={
+        "scenarioName": {
+            "type": "string",
+            "description": "a scenario name given in prompt",
+        },
+    },
+    required=["scenarioName"],
+)
+
+tools = ToolsSchema(standard_tools=[choose_scenario_function])
 
 
 class VoiceAgent:
     def __init__(self, websocket):
         self.websocket = websocket
-        self.system_prompt = SYSTEM_PROMPT
+        self.workflow = BaseWorkflow(WORKFLOW_CONFIG)
+        self.system_prompt = SYSTEM_PROMPT.replace(
+            "\{\{scenarios}}", self.workflow.get_workflows()
+        )
 
     async def run(self):
         transport = FastAPIWebsocketTransport(
@@ -50,7 +74,7 @@ class VoiceAgent:
         )
 
         llm = OpenAILLMService(
-            model="smollm:latest",
+            model="qwen2.5:0.5b",
             base_url="http://localhost:11434/v1",
             api_key="not-needed",
         )
@@ -61,9 +85,18 @@ class VoiceAgent:
         )
 
         context = OpenAILLMContext(
-            messages=[{"role": "system", "content": self.system_prompt}]
+            messages=[{"role": "system", "content": self.system_prompt}],
+            tools=tools,
         )
         context_aggregator = llm.create_context_aggregator(context)
+
+        async def on_choose_scenario(params):
+            print("chooseScenario called with:", params.arguments)
+            scenario_name = params.arguments.get("scenarioName", "")
+            result = self.workflow.choose_scenario(scenario_name)
+            await params.result_callback(result)
+
+        llm.register_function("chooseScenario", on_choose_scenario)
 
         pipeline = Pipeline(
             [
