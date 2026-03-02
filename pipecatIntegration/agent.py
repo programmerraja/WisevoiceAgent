@@ -10,7 +10,7 @@ from pipecat.frames.frames import (
     LLMFullResponseEndFrame,
     LLMTextFrame,
     TranscriptionFrame,
-    TransportMessageUrgentFrame,
+    OutputTransportMessageFrame,
 )
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
@@ -60,7 +60,7 @@ class TranscriptForwarder(FrameProcessor):
 
         if isinstance(frame, TranscriptionFrame):
             await self.push_frame(
-                TransportMessageUrgentFrame(
+                OutputTransportMessageFrame(
                     message={
                         "type": "user_transcript",
                         "text": frame.text,
@@ -74,7 +74,7 @@ class TranscriptForwarder(FrameProcessor):
         elif isinstance(frame, LLMFullResponseEndFrame):
             if self._llm_response_buffer:
                 await self.push_frame(
-                    TransportMessageUrgentFrame(
+                    OutputTransportMessageFrame(
                         message={
                             "type": "agent_response",
                             "text": self._llm_response_buffer,
@@ -134,7 +134,7 @@ class VoiceAgent:
         context_aggregator = llm.create_context_aggregator(context)
 
         async def on_choose_scenario(params):
-            print("chooseScenario called with:", params.arguments)
+            logger.info("chooseScenario called with:", params.arguments)
             scenario_name = params.arguments.get("scenarioName", "")
             result = self.workflow.choose_scenario(scenario_name)
             await params.result_callback(result)
@@ -147,9 +147,9 @@ class VoiceAgent:
             [
                 transport.input(),
                 stt,
-                transcript_forwarder,
                 context_aggregator.user(),
                 llm,
+                transcript_forwarder,
                 tts,
                 transport.output(),
                 context_aggregator.assistant(),
@@ -165,7 +165,7 @@ class VoiceAgent:
         async def on_connected(t, client):
             logger.info("Client connected to local pipeline")
             await task.queue_frames(
-                [TransportMessageUrgentFrame(message={"type": "connected"})]
+                [OutputTransportMessageFrame(message={"type": "connected"})]
             )
 
         @transport.event_handler("on_client_disconnected")

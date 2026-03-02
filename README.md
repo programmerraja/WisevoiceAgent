@@ -66,6 +66,11 @@ The agent handles these scenarios, defined in `prompt/workflow.json`:
 | **proofOfPayment** | Explain proof of payment requirements and formats |
 | **bankingPartnerReference** | Explain reference numbers for tracking |
 
+
+## Preview 
+
+[Preview](./assests/preview.png)
+
 ## Getting Started
 
 ### Option 1: ElevenLabs (Cloud)
