@@ -61,7 +61,7 @@ class TranscriptForwarder(FrameProcessor):
 
         if isinstance(frame, TranscriptionFrame):
             await self.push_frame(
-                OutputTransportMessageFrame(
+                TransportMessageUrgentFrame(
                     message={
                         "type": "user_transcript",
                         "text": frame.text,
@@ -75,7 +75,7 @@ class TranscriptForwarder(FrameProcessor):
         elif isinstance(frame, LLMFullResponseEndFrame):
             if self._llm_response_buffer:
                 await self.push_frame(
-                    OutputTransportMessageFrame(
+                    TransportMessageUrgentFrame(
                         message={
                             "type": "agent_response",
                             "text": self._llm_response_buffer,
@@ -148,6 +148,7 @@ class VoiceAgent:
             [
                 transport.input(),
                 stt,
+                transcript_forwarder,
                 context_aggregator.user(),
                 llm,
                 transcript_forwarder,
