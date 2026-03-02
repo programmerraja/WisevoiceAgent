@@ -11,6 +11,7 @@ from pipecat.frames.frames import (
     LLMTextFrame,
     TranscriptionFrame,
     OutputTransportMessageFrame,
+    TransportMessageUrgentFrame,
 )
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
@@ -165,7 +166,7 @@ class VoiceAgent:
         async def on_connected(t, client):
             logger.info("Client connected to local pipeline")
             await task.queue_frames(
-                [OutputTransportMessageFrame(message={"type": "connected"})]
+                [TransportMessageUrgentFrame(message={"type": "connected"})]
             )
 
         @transport.event_handler("on_client_disconnected")

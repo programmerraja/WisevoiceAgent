@@ -55,6 +55,8 @@ Both backends share the same browser frontend and workflow configuration.
 
 ## Workflows
 
+So instead of giving everything in prompt I have created a workflow.json where we have created each question as scenoria and with prompt so based on user requirement it will choose the scenarios it will answer the question.
+
 The agent handles these scenarios, defined in `prompt/workflow.json`:
 
 | Scenario | Description |
