@@ -6,86 +6,219 @@
   <title>Wise Voice Agent</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      background: #0a0a0f;
+      color: #fff;
       display: flex;
       justify-content: center;
       align-items: center;
-      min-height: 100vh;
-      background: #0f0f0f;
-      color: #fff;
     }
+
     .container {
-      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 480px;
+      padding: 2rem 1.5rem;
+      gap: 1.5rem;
     }
+
+    /* Header */
     h1 {
-      font-size: 1.5rem;
-      margin-bottom: 2rem;
-      font-weight: 400;
-      color: #aaa;
+      font-size: 1.25rem;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      color: rgba(255, 255, 255, 0.7);
     }
+
+    /* Mic Button */
+    .mic-area {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
     #btn {
-      width: 120px;
-      height: 120px;
+      position: relative;
+      width: 80px;
+      height: 80px;
       border-radius: 50%;
       border: none;
       cursor: pointer;
-      font-size: 1rem;
-      font-weight: 600;
-      transition: all 0.2s;
-      background: #2563eb;
+      font-size: 0;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
       color: #fff;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 4px 24px rgba(99, 102, 241, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-    #btn:hover { background: #1d4ed8; }
+    #btn::before {
+      content: '';
+      display: block;
+      width: 28px;
+      height: 28px;
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5z'/%3E%3Cpath d='M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z'/%3E%3C/svg%3E") center/contain no-repeat;
+      transition: all 0.3s;
+    }
+    #btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 6px 32px rgba(99, 102, 241, 0.4);
+    }
     #btn.active {
-      background: #dc2626;
-      animation: pulse 1.5s infinite;
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      box-shadow: 0 4px 24px rgba(239, 68, 68, 0.4);
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
     }
-    #btn.active:hover { background: #b91c1c; }
-    #btn:disabled { background: #333; cursor: not-allowed; animation: none; }
+    #btn.active::before {
+      width: 20px;
+      height: 20px;
+      background: none;
+      border-radius: 4px;
+      background-color: white;
+    }
+    #btn.active:hover {
+      box-shadow: 0 6px 32px rgba(239, 68, 68, 0.5);
+    }
+    #btn:disabled {
+      background: #27272a;
+      box-shadow: none;
+      cursor: not-allowed;
+      animation: none;
+      transform: none;
+    }
+    #btn:disabled::before { opacity: 0.3; }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.3), 0 4px 24px rgba(239, 68, 68, 0.4); }
+      50% { box-shadow: 0 0 0 16px rgba(239, 68, 68, 0), 0 4px 24px rgba(239, 68, 68, 0.4); }
+    }
+
+    /* Waveform visualizer (shown when active) */
+    .wave-bars {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      height: 20px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .wave-bars.visible { opacity: 1; }
+    .wave-bars span {
+      display: block;
+      width: 3px;
+      border-radius: 2px;
+      background: #8b5cf6;
+      animation: wave 1.2s ease-in-out infinite;
+    }
+    .wave-bars span:nth-child(1) { height: 8px; animation-delay: 0s; }
+    .wave-bars span:nth-child(2) { height: 14px; animation-delay: 0.1s; }
+    .wave-bars span:nth-child(3) { height: 20px; animation-delay: 0.2s; }
+    .wave-bars span:nth-child(4) { height: 14px; animation-delay: 0.3s; }
+    .wave-bars span:nth-child(5) { height: 8px; animation-delay: 0.4s; }
+    @keyframes wave {
+      0%, 100% { transform: scaleY(0.4); }
+      50% { transform: scaleY(1); }
+    }
+
     #status {
-      margin-top: 1.5rem;
-      font-size: 0.9rem;
-      color: #666;
+      font-size: 0.8rem;
+      color: rgba(255, 255, 255, 0.35);
+      letter-spacing: 0.03em;
+      transition: color 0.3s;
     }
+
+    /* Transcript */
     #transcript {
-      margin-top: 2rem;
-      width: 420px;
-      max-height: 320px;
+      width: 100%;
+      max-height: 400px;
       overflow-y: auto;
       text-align: left;
       display: flex;
       flex-direction: column;
-      gap: 0.6rem;
+      gap: 0.5rem;
+      padding: 0.75rem;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      scroll-behavior: smooth;
     }
+    #transcript:empty {
+      display: none;
+    }
+
+    /* Custom scrollbar */
+    #transcript::-webkit-scrollbar { width: 4px; }
+    #transcript::-webkit-scrollbar-track { background: transparent; }
+    #transcript::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+    }
+    #transcript::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+    /* Messages */
     .msg {
-      padding: 0.55rem 0.85rem;
-      border-radius: 12px;
-      font-size: 0.9rem;
-      line-height: 1.4;
+      padding: 0.625rem 0.875rem;
+      border-radius: 14px;
+      font-size: 0.85rem;
+      line-height: 1.5;
       max-width: 85%;
+      animation: msgIn 0.25s ease-out;
+      word-wrap: break-word;
     }
     .msg.user {
-      background: #1e3a5f;
-      color: #93c5fd;
+      background: linear-gradient(135deg, #6366f1, #7c3aed);
+      color: #fff;
       align-self: flex-end;
+      border-bottom-right-radius: 4px;
     }
     .msg.agent {
-      background: #1a1a1a;
-      color: #d1d5db;
+      background: rgba(255, 255, 255, 0.07);
+      color: rgba(255, 255, 255, 0.85);
       align-self: flex-start;
+      border-bottom-left-radius: 4px;
     }
-    @keyframes pulse {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
-      50% { box-shadow: 0 0 0 20px rgba(220, 38, 38, 0); }
+
+    .msg-label {
+      display: block;
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 0.2rem;
+      opacity: 0.5;
+    }
+
+    @keyframes msgIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Responsive */
+    @media (max-width: 520px) {
+      .container { max-width: 100%; padding: 1.5rem 1rem; }
     }
   </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
   <div class="container">
     <h1>Wise Voice Agent</h1>
-    <button id="btn" onclick="toggle()">Start</button>
-    <p id="status">Click to start</p>
+    <div class="mic-area">
+      <button id="btn" onclick="toggle()" aria-label="Start"></button>
+      <div class="wave-bars" id="waveBars">
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <p id="status">Tap to start</p>
+    </div>
     <div id="transcript"></div>
   </div>
 
@@ -93,12 +226,17 @@
     const btn = document.getElementById("btn");
     const status = document.getElementById("status");
     const transcript = document.getElementById("transcript");
+    const waveBars = document.getElementById("waveBars");
 
     function addMessage(role, text) {
       if (!text) return;
       const el = document.createElement("div");
       el.className = `msg ${role}`;
-      el.textContent = text;
+      const label = document.createElement("span");
+      label.className = "msg-label";
+      label.textContent = role === "user" ? "You" : "Agent";
+      el.appendChild(label);
+      el.appendChild(document.createTextNode(text));
       transcript.appendChild(el);
       transcript.scrollTop = transcript.scrollHeight;
     }
@@ -164,9 +302,9 @@
           case "connected":
             setStatus("Listening... speak now");
             isRunning = true;
-            btn.textContent = "Stop";
             btn.classList.add("active");
             btn.disabled = false;
+            waveBars.classList.add("visible");
             startMic();
             break;
 
@@ -331,10 +469,10 @@
       }
       ws = null;
 
-      btn.textContent = "Start";
       btn.classList.remove("active");
       btn.disabled = false;
-      setStatus("Click to start");
+      waveBars.classList.remove("visible");
+      setStatus("Tap to start");
       transcript.innerHTML = "";
     }
   </script>

@@ -64,10 +64,7 @@ CONFIG_FILE = "config.json"
 def get_pipeline(lang_code: str) -> KPipeline:
     if lang_code not in state.pipelines:
         logger.info(f"Creating pipeline for {lang_code}")
-        state.pipelines[lang_code] = KPipeline(
-            lang_code=lang_code,
-            model=state.model,
-        )
+        state.pipelines[lang_code] = KPipeline(lang_code=lang_code, model=state.model)
     return state.pipelines[lang_code]
 
 
@@ -128,9 +125,11 @@ async def run_tts(text: str, tts_config: KokoroConfig) -> AsyncGenerator[bytes, 
                 async for audio in create_audio_stream(chunk_text, tts_config):
                     if audio is not None:
                         audio_data = audio * tts_config.volume_multiplier
-                        yield (audio_data.cpu().numpy() * 32767).astype(
-                            np.int16
-                        ).tobytes()
+                        yield (
+                            (audio_data.cpu().numpy() * 32767)
+                            .astype(np.int16)
+                            .tobytes()
+                        )
 
                     else:
                         logger.warning("Empty audio chunk")
@@ -144,7 +143,7 @@ async def lifespan(app: FastAPI):
     logger.info("App starting — loading model")
     await load_model()
     logger.info("Warming up model...")
-    async for _ in run_tts("Hello, this is a test.", KokoroConfig()):
+    async for _ in run_tts("Hello", KokoroConfig()):
         break
     logger.info("Model pre-warmed.")
     yield

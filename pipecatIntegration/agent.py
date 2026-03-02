@@ -5,11 +5,18 @@ from loguru import logger
 from pipecat.adapters.schemas.function_schema import FunctionSchema
 from pipecat.adapters.schemas.tools_schema import ToolsSchema
 from pipecat.audio.vad.silero import SileroVADAnalyzer
-from pipecat.frames.frames import TransportMessageUrgentFrame
+from pipecat.frames.frames import (
+    Frame,
+    LLMFullResponseEndFrame,
+    LLMTextFrame,
+    TranscriptionFrame,
+    TransportMessageUrgentFrame,
+)
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
 from pipecat.processors.aggregators.openai_llm_context import OpenAILLMContext
+from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.services.openai.llm import OpenAILLMService
 from pipecat.transports.websocket.fastapi import (
     FastAPIWebsocketParams,
@@ -43,12 +50,48 @@ choose_scenario_function = FunctionSchema(
 tools = ToolsSchema(standard_tools=[choose_scenario_function])
 
 
+class TranscriptForwarder(FrameProcessor):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._llm_response_buffer = ""
+
+    async def process_frame(self, frame: Frame, direction: FrameDirection):
+        await super().process_frame(frame, direction)
+
+        if isinstance(frame, TranscriptionFrame):
+            await self.push_frame(
+                TransportMessageUrgentFrame(
+                    message={
+                        "type": "user_transcript",
+                        "text": frame.text,
+                    }
+                )
+            )
+
+        elif isinstance(frame, LLMTextFrame):
+            self._llm_response_buffer += frame.text
+
+        elif isinstance(frame, LLMFullResponseEndFrame):
+            if self._llm_response_buffer:
+                await self.push_frame(
+                    TransportMessageUrgentFrame(
+                        message={
+                            "type": "agent_response",
+                            "text": self._llm_response_buffer,
+                        }
+                    )
+                )
+                self._llm_response_buffer = ""
+
+        await self.push_frame(frame, direction)
+
+
 class VoiceAgent:
     def __init__(self, websocket):
         self.websocket = websocket
         self.workflow = BaseWorkflow(WORKFLOW_CONFIG)
         self.system_prompt = SYSTEM_PROMPT.replace(
-            "\{\{scenarios}}", self.workflow.get_workflows()
+            "{{scenarios}}", self.workflow.get_workflows()
         )
 
     async def run(self):
@@ -98,10 +141,13 @@ class VoiceAgent:
 
         llm.register_function("chooseScenario", on_choose_scenario)
 
+        transcript_forwarder = TranscriptForwarder()
+
         pipeline = Pipeline(
             [
                 transport.input(),
                 stt,
+                transcript_forwarder,
                 context_aggregator.user(),
                 llm,
                 tts,

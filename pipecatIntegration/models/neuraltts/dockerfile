@@ -1,0 +1,68 @@
+FROM python:3.12-slim-bookworm
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    HF_HOME=/app/hf_cache
+
+# System deps: espeak-ng is required for phonemization, libopenblas for fast CPU inference
+# RUN apt-get update && \
+#     apt-get install -y --no-install-recommends \
+#         espeak-ng libespeak-ng1 git ffmpeg \
+#         libopenblas-dev cmake build-essential && \
+#     rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install neutts with llama-cpp (GGUF support) + onnx (fast codec decoder)
+# Build llama-cpp-python with OpenBLAS for CPU acceleration
+RUN pip install neutts[onnx] soundfile
+
+# RUN apt-get update 
+# RUN CMAKE_ARGS="-DGGML_BLAS=ON -DGGML_BLAS_VENDOR=OpenBLAS" \
+#     pip install "llama-cpp-python" --force-reinstall --no-cache-dir
+
+# Install server deps
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Pre-download model weights + codec at build time (~2-3GB)
+RUN python -c "\
+from neutts import NeuTTS; \
+import torch; \
+print('Downloading NeuTTS-Air Q8 GGUF + NeuCodec...'); \
+tts = NeuTTS( \
+    backbone_repo='neuphonic/neutts-air-q8-gguf', \
+    backbone_device='cpu', \
+    codec_repo='neuphonic/neucodec-onnx-decoder', \
+    codec_device='cpu', \
+); \
+print('Model cached.') \
+"
+
+# Copy bundled reference samples from the neutts package
+RUN python -c "\
+import neutts, os, shutil; \
+pkg = os.path.dirname(neutts.__file__); \
+src = os.path.join(os.path.dirname(pkg), 'samples'); \
+if os.path.isdir(src): shutil.copytree(src, '/app/samples'); \
+else: os.makedirs('/app/samples', exist_ok=True); \
+print('Samples dir:', os.listdir('/app/samples') if os.path.isdir('/app/samples') else 'empty') \
+"
+
+# Download samples from GitHub if not bundled in package
+RUN if [ ! -f /app/samples/jo.wav ]; then \
+    mkdir -p /app/samples && \
+    for f in jo.wav jo.txt jo.pt dave.wav dave.txt dave.pt; do \
+        curl -sL "https://raw.githubusercontent.com/neuphonic/neutts/main/samples/$f" -o "/app/samples/$f"; \
+    done; \
+    fi
+
+COPY server.py .
+
+EXPOSE 8880
+
+HEALTHCHECK --interval=30s --timeout=5s \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8880/health')" || exit 1
+
+CMD ["python", "server.py"]

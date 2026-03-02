@@ -11,6 +11,6 @@ COPY . .
 
 EXPOSE 9802
 
-RUN python3 download_model.py
+# RUN python3 download_model.py
 
 CMD ["python3", "server.py"]
